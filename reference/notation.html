@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notation Decoder</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+<p class="kicker">Reference · grows with each lesson</p>
+<h1>Notation decoder</h1>
+<p class="subtitle">Every symbol the lessons use, with the PyTorch that does the same thing and a small example you can check by hand.</p>
+
+<h2>Shapes</h2>
+<div class="table-wrap"><table>
+<tr><th>Written</th><th>Means</th><th>Example</th></tr>
+<tr><td><code>(T,)</code></td><td>1-D tensor of length T. The comma marks it as a tuple.</td><td><code>ids = tensor([785, 6722, 315])</code> is <code>(3,)</code></td></tr>
+<tr><td><code>(T, D)</code></td><td>2-D: T rows, D columns. In this course, a row is one token position.</td><td>6 tokens × 1024 numbers each: <code>(6, 1024)</code></td></tr>
+<tr><td><code>(..., D)</code></td><td>Any number of leading dims, with D as the last one. Code written for this works on <code>(D,)</code>, <code>(T, D)</code>, <code>(B, T, D)</code>…</td><td><code>x.mean(-1)</code> works for all of them</td></tr>
+<tr><td><code>-1</code> as a dim</td><td>The last dimension.</td><td>For <code>(6, 1024)</code>, <code>dim=-1</code> is the 1024 one</td></tr>
+</table></div>
+
+<h2>Symbols</h2>
+<div class="table-wrap"><table>
+<tr><th>Symbol</th><th>Read it as</th><th>PyTorch</th><th>Example</th></tr>
+<tr><td><code>x<sub>i</sub></code></td><td>element i of x</td><td><code>x[i]</code></td><td>x = [3, 0, 4] → x<sub>2</sub> = 4</td></tr>
+<tr><td><code>e<sub>t</sub></code></td><td>the embedding of token t: row t of E</td><td><code>E[t]</code></td><td></td></tr>
+<tr><td><code>x²</code></td><td>square each element</td><td><code>x ** 2</code> or <code>x.pow(2)</code></td><td>[3, 0, 4] → [9, 0, 16]</td></tr>
+<tr><td><code>mean(x)</code></td><td>average over the last dim</td><td><code>x.mean(-1, keepdim=True)</code></td><td>[9, 0, 16] → 25/3 ≈ 8.33</td></tr>
+<tr><td><code>Σ<sub>j</sub> a<sub>j</sub></code></td><td>"sum of a<sub>j</sub> over every j": add up all the elements</td><td><code>a.sum(-1, keepdim=True)</code></td><td>Σ [7.39, 2.72, 1] = 11.11</td></tr>
+<tr><td><code>⊙</code></td><td>elementwise multiply: same position times same position</td><td><code>a * b</code></td><td>[1, 0, 1.39] ⊙ [1, 2, 0.5] = [1, 0, 0.69]</td></tr>
+<tr><td><code>@</code></td><td>matrix multiply</td><td><code>a @ b</code></td><td><code>(T, D) @ (D, V) → (T, V)</code></td></tr>
+<tr><td><code>Eᵀ</code></td><td>"E transpose": rows become columns</td><td><code>E.T</code></td><td><code>(V, D)</code> → <code>(D, V)</code></td></tr>
+<tr><td><code>a · b</code></td><td>dot product: multiply elementwise, then sum</td><td><code>(a * b).sum()</code></td><td>[1, 2] · [3, 4] = 3 + 8 = 11</td></tr>
+<tr><td><code>diag(w)</code></td><td>square matrix with w on the diagonal, zeros elsewhere. <code>x @ diag(w)</code> is the same as <code>x * w</code>.</td><td><code>torch.diag(w)</code> (you never need to build it)</td><td>diag([1, 2]) = [[1, 0], [0, 2]]</td></tr>
+<tr><td><code>exp(z)</code>, <code>e<sup>z</sup></code></td><td>e ≈ 2.718 raised to z, elementwise</td><td><code>z.exp()</code></td><td>exp([2, 1, 0]) = [7.39, 2.72, 1]</td></tr>
+<tr><td><code>ε</code> (epsilon)</td><td>a tiny constant that keeps a division safe</td><td><code>eps</code> (10⁻⁶ = 0.000001 here)</td><td></td></tr>
+<tr><td><code>sqrt(·)</code></td><td>square root, elementwise</td><td><code>torch.sqrt(x)</code>; <code>torch.rsqrt(x)</code> is 1/sqrt</td><td>sqrt(8.33) ≈ 2.89</td></tr>
+<tr><td><code>max(z)</code></td><td>largest element along the last dim</td><td><code>z.amax(-1, keepdim=True)</code></td><td>max([2, 1, 0]) = 2</td></tr>
+<tr><td><code>argmax</code></td><td><em>index</em> of the largest element</td><td><code>z.argmax(-1)</code></td><td>argmax([2, 1, 0]) = 0</td></tr>
+</table></div>
+
+<h2>Why <code>keepdim=True</code></h2>
+<p>For <code>x</code> of shape <code>(2, 3)</code>, <code>x.sum(-1)</code> returns <code>(2,)</code>: one total per row. Dividing <code>(2, 3)</code> by <code>(2,)</code> lines the shapes up <em>from the right</em>, so the 2 totals get matched against the 3 columns, which is an error or, worse, the wrong answer. <code>x.sum(-1, keepdim=True)</code> returns <code>(2, 1)</code>, and dividing <code>(2, 3)</code> by <code>(2, 1)</code> stretches each row's single total across its 3 columns. That's what you want: every element divided by <em>its own row's</em> total.</p>
+
+<h2>Worked: RMSNorm</h2>
+<p class="math">y = x / sqrt( mean(x²) + ε ) ⊙ w</p>
+<div class="table-wrap"><table>
+<tr><th>Step</th><th>Code</th><th>x = [3, 0, 4], w = [1, 2, 0.5]</th></tr>
+<tr><td>square</td><td><code>x ** 2</code></td><td>[9, 0, 16]</td></tr>
+<tr><td>mean</td><td><code>.mean(-1, keepdim=True)</code></td><td>8.333</td></tr>
+<tr><td>+ ε, root</td><td><code>torch.sqrt(... + eps)</code></td><td>2.887</td></tr>
+<tr><td>divide</td><td><code>x / rms</code></td><td>[1.039, 0, 1.386]</td></tr>
+<tr><td>scale</td><td><code>* w</code></td><td>[1.039, 0, 0.693]</td></tr>
+</table></div>
+<p>The result after dividing always has mean square 1: (1.039² + 0 + 1.386²) / 3 = 1. Then <code>w</code> stretches each dimension by its learned amount.</p>
+
+<h2>Worked: softmax</h2>
+<p class="math">softmax(z)<sub>i</sub> = exp(z<sub>i</sub>) / Σ<sub>j</sub> exp(z<sub>j</sub>)</p>
+<p>Read it as: "the i-th output is exp of the i-th input, divided by the sum of exp over all inputs."</p>
+<div class="table-wrap"><table>
+<tr><th>Step</th><th>Code</th><th>z = [2, 1, 0]</th><th>z − max = [0, −1, −2]</th></tr>
+<tr><td>exp</td><td><code>.exp()</code></td><td>[7.389, 2.718, 1]</td><td>[1, 0.368, 0.135]</td></tr>
+<tr><td>sum</td><td><code>.sum(-1, keepdim=True)</code></td><td>11.107</td><td>1.503</td></tr>
+<tr><td>divide</td><td><code>e / total</code></td><td>[0.665, 0.245, 0.090]</td><td>[0.665, 0.245, 0.090]</td></tr>
+</table></div>
+<p>The two columns end the same way, which is the shift-invariance argument in numbers. Subtracting 2 shrank every exp by the same factor e² ≈ 7.39, and that factor cancels in the division. The right column can't overflow, because its largest exponent is 0.</p>
+
+<h2>Worked: tied LM head</h2>
+<p>A toy with V = 4 tokens and D = 3. Each logit is the dot product of the final vector <code>y</code> with one row of <code>E</code>; <code>y @ E.T</code> computes all of them at once.</p>
+<div class="table-wrap"><table>
+<tr><th>Token</th><th>Row of E</th><th>y · row, y = [1.039, 0, 0.693]</th></tr>
+<tr><td>0</td><td>[1, 0, 0]</td><td>1.039</td></tr>
+<tr><td>1</td><td>[0, 1, 0]</td><td>0</td></tr>
+<tr><td>2</td><td>[1, 1, 0]</td><td>1.039</td></tr>
+<tr><td>3</td><td>[0, 0, 1]</td><td>0.693</td></tr>
+</table></div>
+
+<nav class="pager"><a href="../index.html">← Course index</a><a href="../lessons/0001-tokens-in-logits-out.html">Lesson 0001 →</a></nav>
+</main>
+</body>
+</html>

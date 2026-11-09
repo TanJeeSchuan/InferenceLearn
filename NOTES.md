@@ -20,4 +20,5 @@
 
 ## Preferences
 - Wants to be challenged. Terse prose, no filler.
+- Every formula comes with its PyTorch line and a 3-4 element numeric example. New symbols go into `reference/notation.html` (see LR 0002).
 - Upstream target is decided after stage 5 with a short lesson comparing the codebases.
