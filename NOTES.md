@@ -22,3 +22,9 @@
 - Wants to be challenged. Terse prose, no filler.
 - Every formula comes with its PyTorch line and a 3-4 element numeric example. New symbols go into `reference/notation.html` (see LR 0002).
 - Upstream target is decided after stage 5 with a short lesson comparing the codebases.
+
+## Page style (2026-11-09)
+- Geist and Geist Mono, self-hosted in `assets/fonts`. One accent color, blue. Light and dark come from the tokens in `assets/course.css`.
+- Use the components in `assets/course.css`: `.rail` for pipelines and sequences, `.task` for the single action box, `.quiz` and `.opts.short` for answers that are shapes or numbers, `.predict`, `.sn` for sidenotes, and `main.wide` for reference pages.
+- Page prose follows /unslop. No em or en dashes, no small-caps eyebrow labels, no mid-sentence colons, sentence-case headings. Quiz options have equal word counts.
+- Before pushing, render each page with headless Chrome into `.scratch/shots` and check light, dark and 390px mobile.
