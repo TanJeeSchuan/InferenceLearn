@@ -37,11 +37,28 @@
 <tr><td><code>model.norm.weight</code></td><td><code>(D,)</code></td><td>final RMSNorm scale w</td></tr>
 </table></div>
 
+<h2>Layer weights</h2>
+<p>Every one of the 28 layers has these, under <code>model.layers.N.</code>. Shapes are <code>(out_features, in_features)</code>, read from the model's safetensors file.</p>
+<div class="table-wrap"><table>
+<tr><th>Key</th><th>Shape</th><th>Role</th></tr>
+<tr><td><code>input_layernorm.weight</code></td><td><code>(1024,)</code></td><td>RMSNorm before attention</td></tr>
+<tr><td><code>self_attn.q_proj.weight</code></td><td><code>(2048, 1024)</code></td><td>16 query heads × 128</td></tr>
+<tr><td><code>self_attn.k_proj.weight</code></td><td><code>(1024, 1024)</code></td><td>8 key heads × 128</td></tr>
+<tr><td><code>self_attn.v_proj.weight</code></td><td><code>(1024, 1024)</code></td><td>8 value heads × 128</td></tr>
+<tr><td><code>self_attn.q_norm.weight</code></td><td><code>(128,)</code></td><td>QK-norm on each query head</td></tr>
+<tr><td><code>self_attn.k_norm.weight</code></td><td><code>(128,)</code></td><td>QK-norm on each key head</td></tr>
+<tr><td><code>self_attn.o_proj.weight</code></td><td><code>(1024, 2048)</code></td><td>merges the 16 heads back to the model width</td></tr>
+<tr><td><code>post_attention_layernorm.weight</code></td><td><code>(1024,)</code></td><td>RMSNorm before the MLP</td></tr>
+<tr><td><code>mlp.gate_proj.weight</code></td><td><code>(3072, 1024)</code></td><td>gate, goes through silu</td></tr>
+<tr><td><code>mlp.up_proj.weight</code></td><td><code>(3072, 1024)</code></td><td>up, multiplied by the gate</td></tr>
+<tr><td><code>mlp.down_proj.weight</code></td><td><code>(1024, 3072)</code></td><td>back to the model width</td></tr>
+</table></div>
+
 <h2>Forward pass so far</h2>
 <div class="table-wrap"><table>
 <tr><th>Step</th><th>Formula</th><th>Shape</th><th>Lesson</th></tr>
 <tr><td>embed</td><td><code>x = E[ids]</code></td><td><code>(T,) → (T, D)</code></td><td><a href="../lessons/0001-tokens-in-logits-out.html">0001</a></td></tr>
-<tr><td>28 blocks</td><td>not yet</td><td><code>(T, D) → (T, D)</code></td><td></td></tr>
+<tr><td>28 blocks</td><td><code>x = x + attn(rms_norm(x))</code>, then <code>x = x + mlp(rms_norm(x))</code></td><td><code>(T, D) → (T, D)</code></td><td><a href="../lessons/0002-one-block-shape-trace.html">0002</a>, traced, not coded yet</td></tr>
 <tr><td>final norm</td><td><code>y = x / sqrt(mean(x², -1) + ε) ⊙ w</code></td><td><code>(T, D)</code></td><td>0001</td></tr>
 <tr><td>LM head</td><td><code>logits = y @ Eᵀ</code></td><td><code>(T, D) → (T, V)</code></td><td>0001</td></tr>
 <tr><td>softmax</td><td><code>e = exp(z − max(z, -1)); p = e / sum(e, -1)</code></td><td><code>(T, V)</code></td><td>0001</td></tr>

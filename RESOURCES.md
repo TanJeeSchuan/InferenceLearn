@@ -17,6 +17,12 @@ Every link below was fetched on 2026-11-09 and the title and authors checked aga
   Visual walkthrough of tokens, embeddings, unembedding and softmax with temperature. Use for: lesson 0001 intuition; the same chapter series covers attention next.
 - [Paper: A Mathematical Framework for Transformer Circuits by Elhage et al., Anthropic (2021)](https://transformer-circuits.pub/2021/framework/index.html)
   The "Zero-Layer Transformers" section shows an embed then unembed model can only learn bigram statistics. Use for: explaining what the zero-layer model in lesson 0001 predicts and why.
+- [Video + text: Attention in transformers, step-by-step (Deep Learning ch. 6) by Grant Sanderson, 3Blue1Brown (2024)](https://www.3blue1brown.com/lessons/attention)
+  Queries, keys, values, the causal mask and multiple heads, drawn. Use for: lesson 0002 intuition before the shape trace.
+- [Paper: Dissecting Recall of Factual Associations in Auto-Regressive Language Models by Geva, Bastings, Filippova, Globerson (EMNLP 2023)](https://arxiv.org/abs/2304.14767)
+  Traces how a subject-relation query reaches the answer: early MLPs enrich the subject position, relation then subject information flows to the last position, and attention heads extract the attribute. Studied on GPT-2 and GPT-J. Use for: lesson 0002, which part of a block does what.
+- [Paper: Locating and Editing Factual Associations in GPT by Meng, Bau, Andonian, Belinkov (NeurIPS 2022)](https://arxiv.org/abs/2202.05262)
+  Causal tracing that finds factual recall in mid-layer MLPs at the subject's tokens, plus ROME editing. Use for: going further on where facts live.
 - [Paper: Attention Is All You Need by Vaswani et al. (2017)](https://arxiv.org/abs/1706.03762)
   Defines scaled dot-product and multi-head attention and the residual block structure. Use for: Section 3.2 when writing attention and the causal mask.
 - [Paper: RoFormer: Enhanced Transformer with Rotary Position Embedding by Su et al. (2021)](https://arxiv.org/abs/2104.09864)

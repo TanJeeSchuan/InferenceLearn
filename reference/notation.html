@@ -42,6 +42,20 @@
 <tr><td><code>argmax</code></td><td><em>index</em> of the largest element</td><td><code>z.argmax(-1)</code></td><td>argmax([2, 1, 0]) = 0</td></tr>
 </table></div>
 
+<h2 id="block-symbols">Attention and MLP symbols</h2>
+<p>Added in <a href="../lessons/0002-one-block-shape-trace.html">lesson 0002</a>.</p>
+<div class="table-wrap"><table>
+<tr><th>Symbol</th><th>Read it as</th><th>PyTorch</th><th>Example</th></tr>
+<tr><td><code>√d</code></td><td>square root of d, the numbers per head</td><td><code>math.sqrt(128)</code></td><td>√128 ≈ 11.3</td></tr>
+<tr><td><code>q kᵀ</code></td><td>every query dotted with every key</td><td><code>q @ k.transpose(-2, -1)</code></td><td><code>(T, d) @ (d, T) → (T, T)</code></td></tr>
+<tr><td><code>−∞</code></td><td>minus infinity. exp(−∞) = 0, so softmax gives it zero weight</td><td><code>float("-inf")</code></td><td>softmax([0.7, −∞]) = [1, 0]</td></tr>
+<tr><td><code>σ(z)</code></td><td>sigmoid, squashes any number into 0 to 1</td><td><code>torch.sigmoid(z)</code></td><td>σ(0) = 0.5, σ(2) ≈ 0.88</td></tr>
+<tr><td><code>silu(z)</code></td><td>z · σ(z), a smooth on/off switch</td><td><code>z * torch.sigmoid(z)</code></td><td>silu([−2, 0, 2]) = [−0.24, 0, 1.76]</td></tr>
+<tr><td><code>view</code>, <code>reshape</code></td><td>same numbers, new shape. The total count must stay the same</td><td><code>x.view(T, 16, 128)</code></td><td><code>(5, 2048)</code> → <code>(5, 16, 128)</code></td></tr>
+<tr><td><code>transpose(0, 1)</code></td><td>swap the first two dims</td><td><code>x.transpose(0, 1)</code></td><td><code>(5, 16, 128)</code> → <code>(16, 5, 128)</code></td></tr>
+<tr><td><code>@</code> on 3-D tensors</td><td>one matmul per index of the first dim, all at once</td><td><code>a @ b</code></td><td><code>(16, 5, 128) @ (16, 128, 5)</code> → <code>(16, 5, 5)</code></td></tr>
+</table></div>
+
 <h2 id="type-hints">Reading the stubs: type hints</h2>
 <p>The function signatures in <code>minfer/</code> carry Python type hints. They document what goes in and what comes out. Python doesn't check them at runtime.</p>
 <div class="table-wrap"><table>

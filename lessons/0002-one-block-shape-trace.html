@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Block, Traced</title>
+<link rel="preload" href="../assets/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="crumbs"><a href="../index.html">Inference from scratch</a> / Forward pass</p>
+<h1>One block, traced</h1>
+<p class="lede">What happens inside one of the 28 blocks, worked out on paper as tensor shapes before you write any code. About 60 minutes.</p>
+<p>New symbols in this lesson, like √d, −∞ and silu, are in the <a href="../reference/notation.html#block-symbols">notation decoder</a>.</p>
+
+<section data-quiz-set>
+<h2>Warm-up</h2>
+<p>From lesson 0001, from memory.</p>
+
+<div class="quiz" data-answer="2">
+  <p class="q">What does your <code>zero_layer_logits</code> return?</p>
+  <div class="opts">
+    <button>Probabilities that add up to one in each row</button>
+    <button>Just the predicted token id, one for each position</button>
+    <button>Raw scores for every vocabulary entry at each position</button>
+    <button>One score per position for how likely it is</button>
+  </div>
+  <p class="why">Logits are raw scores, shape <code>(T, V)</code>. Softmax is a separate step, and stage 2 needs the raw logits so it can apply temperature first.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">In RMSNorm, which order is right?</p>
+  <div class="opts">
+    <button>Square each element, then average across the row</button>
+    <button>Average across the row, then square that average</button>
+    <button>Take the square root, then average the row</button>
+    <button>Average across the column, then square each element</button>
+  </div>
+  <p class="why">mean(x²): square first, then average. Averaging first lets positive and negative values cancel, which is the bug from your first attempt.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">Why did a trailing space in the prompt stop the model from saying Paris?</p>
+  <div class="opts">
+    <button>Spaces are removed before the model sees the prompt</button>
+    <button>The model cannot read prompts that end in whitespace</button>
+    <button>A trailing space makes the softmax overflow to NaN</button>
+    <button>The space became a token, and Paris carries one</button>
+  </div>
+  <p class="why">The vocabulary has <code>' Paris'</code> with the space built in. A lone <code>' '</code> token is followed by digits far more often than by <code>'Paris'</code> without its space.</p>
+</div>
+<p class="quiz-score"></p>
+</section>
+
+<h2>Your guess, checked</h2>
+<p>You guessed that the last position collects "capital of" first, then "France", and that both parts of the block take part. Geva et al. traced exactly this kind of question through a model and found the same order. Information from the relation words arrives at the last position first, and information from the subject arrives after it.
+<span class="sn"><a href="https://arxiv.org/abs/2304.14767">Geva, Bastings, Filippova and Globerson, <em>Dissecting Recall of Factual Associations in Auto-Regressive Language Models</em></a>, EMNLP 2023. They studied GPT-2 and GPT-J, not Qwen3, so treat this as how models like Qwen3 tend to work, not a measurement of yours.</span></p>
+<p>The part your guess didn't name is what happens at the <code>' France'</code> position before any of that. Early MLPs there "enrich" the vector with facts about France. Then an attention head at the last position reads "Paris" out of that enriched vector. So the MLPs store facts at each position, and attention moves them between positions. That split is the whole block in one sentence.</p>
+
+<h2>A block makes two updates</h2>
+<p>Each block reads the running vector <code>x</code> and adds two updates to it.</p>
+<pre><code>x = x + attention(rms_norm(x))   # mix information across positions
+x = x + mlp(rms_norm(x))         # transform each position on its own</code></pre>
+<p>Because each update gets added to <code>x</code> and doesn't replace it, a block can leave most of <code>x</code> alone and change one part. People call <code>x</code> the <dfn>residual stream</dfn>: every block reads from it and writes back into it, and its shape stays <code>(T, 1024)</code> the whole way through.</p>
+
+<ol class="rail" aria-label="One Qwen3 block">
+  <li><span class="what">RMSNorm<small><code>input_layernorm</code></small></span><span class="shape">(T, 1024)</span></li>
+  <li class="you"><span class="what">Attention<small>q, k, v projections, 16 heads, mask, softmax, output projection</small></span><span class="shape">(T, 1024)</span></li>
+  <li><span class="what">Add to x<small>first residual update</small></span><span class="shape">(T, 1024)</span></li>
+  <li><span class="what">RMSNorm<small><code>post_attention_layernorm</code></small></span><span class="shape">(T, 1024)</span></li>
+  <li class="you"><span class="what">MLP<small>gate and up to 3072, silu, down to 1024</small></span><span class="shape">(T, 1024)</span></li>
+  <li><span class="what">Add to x<small>second residual update</small></span><span class="shape">(T, 1024)</span></li>
+</ol>
+
+<h2>Attention, with numbers</h2>
+<p>Every position makes three vectors from its <code>x</code>. A <dfn>query</dfn> <code>q</code> says what it's looking for. A <dfn>key</dfn> <code>k</code> says what it offers. A <dfn>value</dfn> <code>v</code> is what it hands over if chosen. Each comes from a matrix multiply, <code>q = h @ q_proj.weight.T</code> and so on.</p>
+<p class="math">weights = softmax( q kᵀ / √d + mask )<br>out = weights @ v</p>
+<p>Take T = 3 positions with d = 2 numbers each.</p>
+<div class="table-wrap"><table>
+<tr><th>Position</th><th>q</th><th>k</th><th>v</th></tr>
+<tr><td>0</td><td>[1, 0]</td><td>[1, 0]</td><td>[10, 0]</td></tr>
+<tr><td>1</td><td>[0, 1]</td><td>[0, 1]</td><td>[0, 10]</td></tr>
+<tr><td>2</td><td>[1, 1]</td><td>[1, 1]</td><td>[5, 5]</td></tr>
+</table></div>
+<p>Row <code>i</code> of <code>q @ k.T</code> holds position <code>i</code>'s query dotted with every key. Dividing by √2 gives the scores. The <dfn>causal mask</dfn> then sets every score where <code>j &gt; i</code> to −∞, because a position may only look at itself and earlier positions. exp(−∞) is 0, so those entries get zero weight after softmax.</p>
+<div class="table-wrap"><table>
+<tr><th>Row</th><th>scores, masked</th><th>weights = softmax</th><th>out = weights @ v</th></tr>
+<tr><td>0</td><td>[0.71, −∞, −∞]</td><td>[1, 0, 0]</td><td>[10, 0]</td></tr>
+<tr><td>1</td><td>[0, 0.71, −∞]</td><td>[0.33, 0.67, 0]</td><td>[3.3, 6.7]</td></tr>
+<tr><td>2</td><td>[0.71, 0.71, 1.41]</td><td>[0.25, 0.25, 0.50]</td><td>[5.0, 5.0]</td></tr>
+</table></div>
+<p>Position 0 can only see itself, so it copies its own value. Position 2's query matches its own key best, so half its output comes from <code>v₂</code>. Each output row is a weighted average of the visible values, with the weights decided by query-key matches.
+<span class="sn">Dividing by √d keeps scores from growing with the vector length. Without it, 128-number dot products get large, softmax puts nearly all the weight on one entry, and the averaging stops working. The reason is in §3.2.1 of <a href="https://arxiv.org/abs/1706.03762">Vaswani et al., 2017</a>.</span></p>
+
+<h2>Qwen3's version</h2>
+<p>Qwen3 runs this with real sizes and four additions.</p>
+<p><strong>16 heads.</strong> <code>q_proj</code> makes 2048 numbers per position, split into 16 heads of 128. Each head runs its own attention on its own 128-number slice, so different heads can look for different things. Afterwards the 16 outputs get joined back into 2048 numbers, and <code>o_proj</code> maps them down to 1024.</p>
+<p><strong>8 KV heads, shared.</strong> <code>k_proj</code> and <code>v_proj</code> only make 8 heads each. Every key and value head serves 2 query heads. This is <dfn>grouped-query attention</dfn>, GQA. It halves the keys and values the model has to keep around, which is the whole subject of stage 3.
+<span class="sn"><a href="https://arxiv.org/abs/2305.13245">Ainslie et al., 2023</a>. In code, the sharing is a repeat: each KV head gets copied so the counts match before the matmul.</span></p>
+<p><strong>QK-norm.</strong> Before attention, Qwen3 runs RMSNorm over each head's 128 numbers in <code>q</code> and in <code>k</code>, with their own weights <code>q_norm</code> and <code>k_norm</code>. That's your <code>rms_norm</code> again, applied to the last dim.</p>
+<p><strong>RoPE.</strong> Rotary position embedding rotates pairs of numbers in <code>q</code> and <code>k</code> by an angle that depends on the position. That's how attention knows token order. It never changes a shape, and lesson 0003 covers how it works.</p>
+
+<h2>The MLP</h2>
+<p>The MLP works on each position separately. Qwen3 uses a gated version called SwiGLU.</p>
+<p class="math">mlp(h) = ( silu(h Wgateᵀ) ⊙ (h Wupᵀ) ) Wdownᵀ</p>
+<p>The gate and up projections widen each position from 1024 to 3072 numbers. silu(z) = z · σ(z) is a smooth on/off switch: silu([−2, 0, 2]) = [−0.24, 0, 1.76]. Multiplying by the up projection lets the gate decide how much of each of the 3072 features passes through. The down projection maps back to 1024.
+<span class="sn"><a href="https://arxiv.org/abs/2002.05202">Shazeer, 2020</a> introduces SwiGLU. The reference you will match is <code>Qwen3MLP</code> in <a href="https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen3/modeling_qwen3.py"><code>modeling_qwen3.py</code></a>.</span></p>
+
+<h2>Trace it</h2>
+<div class="task">
+<ol>
+<li><strong>Update</strong> with <code>git pull</code> in <code>~/InferenceLearn</code>.</li>
+<li><strong>Fill in</strong> the Shape column of <code>traces/0002-block.md</code>, all 31 rows, for the prompt "The capital of France is" (T = 5). Work it out from the config and the weight shapes. Don't run any model code yet.</li>
+<li><strong>Check</strong> with <code>uv run python scripts/check_trace.py</code>. It marks each row ok or wrong and gives a hint for wrong rows, without printing the answer.</li>
+<li><strong>Answer</strong> the four questions at the bottom of the trace, then paste them into the session. I'll review them.</li>
+</ol>
+<p>Stuck on a row? The hint names the config value that row depends on. If it still doesn't click, ask me which level of hint you want.</p>
+</div>
+
+<section data-quiz-set>
+<h2>Recall</h2>
+<p>After the trace, from memory.</p>
+
+<div class="quiz" data-answer="1">
+  <p class="q">What does the causal mask do to row 0 of the attention weights?</p>
+  <div class="opts">
+    <button>Spreads the weight evenly across every single position</button>
+    <button>Puts all the weight on position 0 itself</button>
+    <button>Sets the whole row to zero before softmax</button>
+    <button>Puts all the weight on the last position</button>
+  </div>
+  <p class="why">Position 0 can only see itself. Every other score is −∞, so softmax gives position 0 a weight of 1.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">Why does <code>q_proj</code> output 2048 numbers when the model width is 1024?</p>
+  <div class="opts">
+    <button>Queries need twice the precision of keys</button>
+    <button>The extra numbers hold the position encoding</button>
+    <button>The output projection expects twice the width</button>
+    <button>Sixteen heads of 128 numbers give 2048</button>
+  </div>
+  <p class="why">num_attention_heads × head_dim = 16 × 128 = 2048. Qwen3 doesn't tie the attention width to the model width.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">Which part of the block moves information from one position to another?</p>
+  <div class="opts">
+    <button>Attention, through the weighted average of the values</button>
+    <button>The MLP, through its gate and up projections</button>
+    <button>RMSNorm, by rescaling the vector at each position</button>
+    <button>The residual add, by summing the two updates</button>
+  </div>
+  <p class="why">Only attention combines different positions. The MLP, RMSNorm and the residual adds all work on one position at a time.</p>
+</div>
+<p class="quiz-score"></p>
+</section>
+
+<h2>Read next</h2>
+<p><a href="https://www.3blue1brown.com/lessons/attention">3Blue1Brown, <em>Attention in transformers, step-by-step</em></a>, chapter 6 of the deep learning series. It draws queries, keys, values and the mask.</p>
+<p>Once your trace passes, read <code>Qwen3Attention.forward</code> and <code>Qwen3DecoderLayer.forward</code> in <a href="https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen3/modeling_qwen3.py"><code>modeling_qwen3.py</code></a>. Each line should match a row of your trace. The code has a batch dimension in front that our engine doesn't have yet.</p>
+<p>Ask me about anything in the trace that feels arbitrary. Most of these choices have a reason, and the reason usually matters later in the course.</p>
+
+<h2>Next</h2>
+<p>Lesson 0003 turns your trace into code: RoPE, attention and the MLP, checked against the output of Hugging Face's layer 0. The <a href="../reference/qwen3-0.6b.html">Qwen3-0.6B card</a> now lists every layer-0 weight.</p>
+
+<nav class="pager"><a href="0001-tokens-in-logits-out.html">← Lesson 0001</a><a href="../index.html">Course home →</a></nav>
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
