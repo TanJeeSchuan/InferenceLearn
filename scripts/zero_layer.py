@@ -30,9 +30,10 @@ def main():
     p0 = softmax(zero_layer_logits(ids, dict(hf.state_dict()), hf.config.rms_norm_eps))
     p28 = softmax(hf(ids[None]).logits[0])
 
-    print(f"{'after token':<14}| {'0 layers (yours)':<48}| 28 layers (HF)")
     for t in range(len(ids)):
-        print(f"{tok.decode(ids[t])!r:<14}| {top(tok, p0[t]):<48}| {top(tok, p28[t])}")
+        print(f"after {tok.decode(ids[t])!r}")
+        print(f"   0 layers (yours): {top(tok, p0[t])}")
+        print(f"  28 layers (HF):    {top(tok, p28[t])}")
 
 
 if __name__ == "__main__":

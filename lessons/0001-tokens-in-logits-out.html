@@ -59,7 +59,7 @@
 
 <h2>Text to ids</h2>
 <p>A tokenizer splits text into pieces from a fixed vocabulary and returns their integer ids. Qwen uses byte-level BPE, so any byte sequence can be encoded and nothing is ever "unknown". You won't write one: it doesn't affect inference speed, and the model only ever sees the ids.
-<span class="sn">The Qwen3 Technical Report (§2) gives the tokenizer as byte-level BPE with 151,669 tokens. The config's 151,936 rows are rounded up for hardware alignment; the extra rows never come out of the tokenizer.</span></p>
+<span class="sn">The Qwen3 Technical Report (§2) gives the tokenizer as byte-level BPE with 151,669 tokens. <code>len(tok)</code> is 151,669, but the embedding table has 151,936 rows: 267 padding rows that the tokenizer never produces.</span></p>
 <pre><code>from transformers import AutoTokenizer
 tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
 ids = tok("The capital of France is", return_tensors="pt").input_ids[0]
@@ -97,7 +97,10 @@ print(ids, [tok.decode(i) for i in ids])</code></pre>
   <textarea placeholder="My guess, and the reason…"></textarea>
   <button>Lock in</button>
   <div class="reveal">
-    <p><strong>REVEAL-PENDING</strong></p>
+    <p><strong>It predicts the token it was just given.</strong> After <code>' is'</code> the top pick is <code>' is'</code>, after <code>' France'</code> it is <code>' France'</code>, each with probability ≈ 1.00. Over a 272-token paragraph, measured on your 4050, the argmax was the current input token at 271 of 272 positions.</p>
+    <p>Why: with tied weights, the logit for candidate <code>j</code> is (a rescaled copy of <code>e<sub>t</sub></code>) · <code>e<sub>j</sub></code>, and a vector lines up best with itself. The runners-up are its nearest neighbours in embedding space: <code>'France'</code>, <code>' france'</code>, <code>'法国'</code>. The one miss is a nice illustration: after <code>' their'</code> the top pick was <code>'他们的'</code>, Chinese for "their", with <code>' their'</code> 0.9 logits behind. Translations end up as near neighbours.</p>
+    <p>The deeper reason is that a model with no middle can at best learn a bigram table (Elhage et al., below). With tied weights it can't even do that, because the score table <code>E diag(w) Eᵀ</code> is symmetric up to a per-row scale: "of → the" has to score the same as "the → of", and every token's own entry dominates its row. So every bit of next-token knowledge in this model lives in the 28 blocks you skipped. The real model's answer after <code>' is'</code> is <code>' Paris'</code> at 0.66.</p>
+    <p>One more measurement: those self-scores are around <strong>116</strong>, past the e<sup>88.7</sup> fp32 limit. A naive softmax returns <code>NaN</code> on this model's real output, not only on the contrived test.</p>
   </div>
 </div>
 

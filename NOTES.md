@@ -15,6 +15,8 @@
 - The server that authors the course has ~7 GB RAM shared with other services: never load the model there.
 - Public repo, lessons on GitHub Pages.
 - Tests run in fp32 to keep tolerances tight. bf16 behavior is its own topic later (stage 3/7).
+- Laptop facts (measured 2026-11-09): WSL distro Ubuntu-26.04, repo at `~/InferenceLearn`, uv 0.13.7, torch 2.11.0+cu128, transformers 5.22.2, Python 3.12. The Windows desktop holds ~1.6 GB of VRAM; the lesson 0001 tests peak at 2.3 GB allocated. WSL's `/tmp` gets wiped between separate `wsl` calls, so keep scratch files in `~/.scratch`.
+- Verifying a lesson: delegate to the laptop and put the reference solution only in a throwaway clone (`~/.scratch/minfer-verify`). Check that the reference passes, and that a planted bug makes each test fail.
 
 ## Preferences
 - Wants to be challenged. Terse prose, no filler.
