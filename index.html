@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inference From Scratch</title>
+<link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+<p class="kicker">A self-study course</p>
+<h1>Inference from scratch</h1>
+<p class="subtitle">Learning how LLM inference works by writing a Qwen3-0.6B engine from PyTorch primitives on one 6 GB GPU.</p>
+
+<h2>Lessons</h2>
+<div class="table-wrap"><table>
+<tr><th>#</th><th>Lesson</th><th>Stage</th></tr>
+<tr><td>0001</td><td><a href="lessons/0001-tokens-in-logits-out.html">Tokens in, logits out</a></td><td>1 · forward pass</td></tr>
+</table></div>
+
+<h2>Reference</h2>
+<ul>
+<li><a href="reference/qwen3-0.6b.html">Qwen3-0.6B card</a>: config, weights, and formulas so far</li>
+</ul>
+
+<h2>The route</h2>
+<ol>
+<li>Forward pass: your logits match Hugging Face's</li>
+<li>Sampling and the generation loop</li>
+<li>KV cache, prefill vs decode, roofline</li>
+<li>Continuous batching</li>
+<li>Paged KV cache</li>
+<li>Speculative decoding</li>
+<li>Weight-only int8 / int4 quantization</li>
+<li>Triton kernels: fused RMSNorm, FlashAttention-style attention</li>
+</ol>
+
+<h2>Workspace</h2>
+<ul>
+<li><a href="https://github.com/TanJeeSchuan/InferenceLearn/blob/main/MISSION.md">Mission</a> · <a href="https://github.com/TanJeeSchuan/InferenceLearn/blob/main/RESOURCES.md">Resources</a> · <a href="https://github.com/TanJeeSchuan/InferenceLearn/tree/main/learning-records">Learning records</a> · <a href="https://github.com/TanJeeSchuan/InferenceLearn">Source</a></li>
+</ul>
+</main>
+</body>
+</html>

@@ -1,0 +1,25 @@
+[project]
+name = "minfer"
+version = "0.0.0"
+description = "A Qwen3-0.6B inference engine, written from PyTorch primitives while learning."
+requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.8",
+    "transformers>=4.56",
+    "pytest>=8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

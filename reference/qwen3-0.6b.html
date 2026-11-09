@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qwen3-0.6B Card</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+<p class="kicker">Reference · grows with each lesson</p>
+<h1>Qwen3-0.6B card</h1>
+<p class="subtitle">Every number and formula the course has used so far.</p>
+
+<h2>Config</h2>
+<p>From <a href="https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/config.json"><code>config.json</code></a>.</p>
+<div class="table-wrap"><table>
+<tr><th>Key</th><th>Value</th><th>Symbol</th></tr>
+<tr><td><code>vocab_size</code></td><td>151,936 (tokenizer uses 151,669)</td><td>V</td></tr>
+<tr><td><code>hidden_size</code></td><td>1024</td><td>D</td></tr>
+<tr><td><code>num_hidden_layers</code></td><td>28</td><td>L</td></tr>
+<tr><td><code>num_attention_heads</code></td><td>16</td><td></td></tr>
+<tr><td><code>num_key_value_heads</code></td><td>8</td><td></td></tr>
+<tr><td><code>head_dim</code></td><td>128</td><td></td></tr>
+<tr><td><code>intermediate_size</code></td><td>3072</td><td></td></tr>
+<tr><td><code>rms_norm_eps</code></td><td>1e-6</td><td>ε</td></tr>
+<tr><td><code>rope_theta</code></td><td>1,000,000</td><td></td></tr>
+<tr><td><code>tie_word_embeddings</code></td><td>true</td><td></td></tr>
+<tr><td><code>torch_dtype</code></td><td>bfloat16</td><td></td></tr>
+</table></div>
+
+<h2>Weights used so far</h2>
+<div class="table-wrap"><table>
+<tr><th>Key</th><th>Shape</th><th>Role</th></tr>
+<tr><td><code>model.embed_tokens.weight</code></td><td><code>(V, D)</code></td><td>embedding table E, and the LM head (tied)</td></tr>
+<tr><td><code>model.norm.weight</code></td><td><code>(D,)</code></td><td>final RMSNorm scale w</td></tr>
+</table></div>
+
+<h2>Forward pass so far</h2>
+<div class="table-wrap"><table>
+<tr><th>Step</th><th>Formula</th><th>Shape</th><th>Lesson</th></tr>
+<tr><td>embed</td><td><code>x = E[ids]</code></td><td><code>(T,) → (T, D)</code></td><td><a href="../lessons/0001-tokens-in-logits-out.html">0001</a></td></tr>
+<tr><td>28 blocks</td><td>not yet</td><td><code>(T, D) → (T, D)</code></td><td></td></tr>
+<tr><td>final norm</td><td><code>y = x / sqrt(mean(x², -1) + ε) ⊙ w</code></td><td><code>(T, D)</code></td><td>0001</td></tr>
+<tr><td>LM head</td><td><code>logits = y @ Eᵀ</code></td><td><code>(T, D) → (T, V)</code></td><td>0001</td></tr>
+<tr><td>softmax</td><td><code>e = exp(z − max(z, -1)); p = e / sum(e, -1)</code></td><td><code>(T, V)</code></td><td>0001</td></tr>
+</table></div>
+
+<h2>Facts worth keeping</h2>
+<ul>
+<li>Row <code>t</code> of the logits predicts token <code>t+1</code> from tokens <code>0..t</code>.</li>
+<li>fp32 overflows above about e<sup>88.7</sup> ≈ 3.4 × 10³⁸. Softmax is shift-invariant, so subtract the row max first.</li>
+<li>ε goes inside the square root.</li>
+<li>Embedding is about 156M of the 0.6B parameters (0.44B non-embedding, per the model card).</li>
+</ul>
+
+<nav class="pager"><a href="../index.html">← Course index</a><span></span></nav>
+</main>
+</body>
+</html>

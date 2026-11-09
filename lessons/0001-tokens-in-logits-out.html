@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokens In, Logits Out</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">Lesson 0001 · Stage 1, the forward pass</p>
+<h1>Tokens in, logits out</h1>
+<p class="subtitle">Build both ends of Qwen3-0.6B and leave out the middle. About 45 minutes.</p>
+
+<section data-quiz-set>
+<h2>Warm-up</h2>
+<p>There are no earlier lessons to review yet, so this checks the shape intuition you said you have. Answer from memory.</p>
+
+<div class="quiz" data-answer="2">
+  <p class="q"><code>E</code> has shape <code>(151936, 1024)</code> and <code>ids</code> has shape <code>(6,)</code>. What shape is <code>E[ids]</code>?</p>
+  <div class="opts"><button>(1024, 6)</button><button>(6, 151936)</button><button>(6, 1024)</button><button>(151936, 6)</button></div>
+  <p class="why">Indexing with a tensor of ids picks whole rows, one per id, in order. The 6 picked rows each keep their 1024 columns.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q"><code>x</code> is <code>(6, 1024)</code> and <code>E</code> is <code>(151936, 1024)</code>. What shape is <code>x @ E.T</code>?</p>
+  <div class="opts"><button>(6, 151936)</button><button>(1024, 1024)</button><button>(151936, 6)</button><button>(6, 6)</button></div>
+  <p class="why"><code>(6, 1024) @ (1024, 151936)</code>: the inner 1024s cancel and the outer dims survive. That is one number per (position, vocabulary entry) pair.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q"><code>x</code> is <code>(6, 1024)</code>. What shape is <code>x.mean(dim=-1, keepdim=True)</code>?</p>
+  <div class="opts"><button>(6,)</button><button>(1, 1024)</button><button>(1024,)</button><button>(6, 1)</button></div>
+  <p class="why">Reducing the last dim with <code>keepdim=True</code> leaves a size-1 dim behind, so <code>x / x.mean(-1, keepdim=True)</code> broadcasts one value across each row. Without it you get <code>(6,)</code>, which broadcasts against the <em>wrong</em> dim, or fails.</p>
+</div>
+<p class="quiz-score"></p>
+</section>
+
+<h2>The whole job, as one function</h2>
+
+<p>An LLM, at inference time, is one function:</p>
+<pre><code>model(ids: (T,) int64) -&gt; logits: (T, V) float</code></pre>
+<p><code>T</code> is the number of tokens in the prompt and <code>V</code> is the vocabulary size: 151,936 for Qwen3-0.6B. Row <code>t</code> of the output holds one score per vocabulary entry: how much the model likes each candidate as token <code>t+1</code>, given tokens <code>0..t</code>. These raw scores are <dfn>logits</dfn>. Softmax turns a row of logits into a probability distribution.
+<span class="sn">Every number about this model in the course comes from its <a href="https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/config.json"><code>config.json</code></a>: <code>vocab_size</code> 151936, <code>hidden_size</code> 1024, <code>num_hidden_layers</code> 28, <code>tie_word_embeddings</code> true.</span></p>
+
+<p>Generating text means calling this function, sampling from the last row, appending the sampled id, and calling it again. That loop is stage 2. Everything after that (KV cache, batching, paging) is about making the loop cheaper. Today you build the function, minus its middle.</p>
+
+<p>The pipeline, with the shapes for Qwen3-0.6B (<code>D</code> = 1024):</p>
+<div class="table-wrap"><table>
+<tr><th>Step</th><th>Shape</th><th>Today</th></tr>
+<tr><td>text → tokenizer → <code>ids</code></td><td><code>(T,)</code></td><td>borrowed from HF</td></tr>
+<tr><td>embedding lookup</td><td><code>(T, D)</code></td><td><strong>you</strong></td></tr>
+<tr><td>28 transformer blocks</td><td><code>(T, D) → (T, D)</code></td><td>skipped</td></tr>
+<tr><td>final RMSNorm</td><td><code>(T, D)</code></td><td><strong>you</strong></td></tr>
+<tr><td>LM head</td><td><code>(T, V)</code></td><td><strong>you</strong></td></tr>
+<tr><td>softmax</td><td><code>(T, V)</code></td><td><strong>you</strong></td></tr>
+</table></div>
+
+<h2>Text to ids</h2>
+<p>A tokenizer splits text into pieces from a fixed vocabulary and returns their integer ids. Qwen uses byte-level BPE, so any byte sequence can be encoded and nothing is ever "unknown". You won't write one: it doesn't affect inference speed, and the model only ever sees the ids.
+<span class="sn">The Qwen3 Technical Report (§2) gives the tokenizer as byte-level BPE with 151,669 tokens. The config's 151,936 rows are rounded up for hardware alignment; the extra rows never come out of the tokenizer.</span></p>
+<pre><code>from transformers import AutoTokenizer
+tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+ids = tok("The capital of France is", return_tensors="pt").input_ids[0]
+print(ids, [tok.decode(i) for i in ids])</code></pre>
+
+<h2>Ids to vectors: the embedding</h2>
+<p>The embedding table <code>E</code> is <code>(V, D)</code>: one learned 1024-dim vector per vocabulary entry. Embedding a token is reading its row: <code>E[ids]</code>.</p>
+<p>That is the same as multiplying a one-hot matrix by <code>E</code>: <code>one_hot(ids, V) @ E</code>. The two give identical results. Indexing wins because the one-hot version does <code>T × 151936 × 1024</code> multiply-adds, nearly all of them by zero, just to copy <code>T</code> rows.
+<span class="sn">For <code>T</code> = 6 that's about 0.9 billion multiply-adds to move 6 × 1024 numbers. Cost of the math vs. cost of moving bytes is the theme of stage 3.</span></p>
+
+<h2>The middle, skipped</h2>
+<p>Each of the 28 blocks takes a <code>(T, D)</code> tensor and returns another <code>(T, D)</code> tensor. Because the shape never changes, you can delete all of them and the two ends still connect. You'll do that today, and see what a model with nothing in the middle predicts.</p>
+
+<h2>RMSNorm</h2>
+<p>Before the LM head, each position's vector is rescaled to a standard size. For one row <code>x</code> of length <code>D</code>:</p>
+<p class="math">rms(x) = sqrt( mean(x²) + ε )&nbsp;&nbsp;&nbsp;&nbsp;y = (x / rms(x)) ⊙ w</p>
+<p><code>w</code> is a learned <code>(D,)</code> vector (key <code>model.norm.weight</code>), and ε = 10⁻⁶ (<code>rms_norm_eps</code>). The ε sits <em>inside</em> the square root. If a row's mean square is far below ε, the ε dominates and keeps the division finite. One of the tests feeds tiny inputs to check exactly that.
+<span class="sn">RMSNorm comes from <a href="https://arxiv.org/abs/1910.07467">Zhang &amp; Sennrich (2019)</a>: LayerNorm without the mean subtraction, cheaper and just as good. The reference you are matching is <code>Qwen3RMSNorm</code> in HF's <a href="https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen3/modeling_qwen3.py"><code>modeling_qwen3.py</code></a>.</span></p>
+
+<h2>The LM head</h2>
+<p>To score every vocabulary entry, take each position's final vector and dot it with every token's vector: <code>logits = y @ Eᵀ</code>, shape <code>(T, D) @ (D, V) = (T, V)</code>. Qwen3-0.6B <dfn>ties</dfn> its embeddings: the LM head reuses the same <code>E</code> as the embedding lookup. A token's logit is how well the final vector lines up with that token's own embedding.
+<span class="sn"><code>E</code> holds 151,936 × 1024 ≈ 156M parameters, about a quarter of the model. The <a href="https://huggingface.co/Qwen/Qwen3-0.6B">model card</a> lists 0.6B total and 0.44B non-embedding. Tying saves another 156M.</span></p>
+
+<h2>Softmax, and why the naive one breaks</h2>
+<p class="math">softmax(z)ᵢ = exp(zᵢ) / Σⱼ exp(zⱼ)</p>
+<p>Exponentiating makes every score positive, and dividing by the sum makes each row add up to 1. Written naively, it breaks: fp32 tops out around 3.4 × 10³⁸ ≈ e<sup>88.7</sup>, so <code>exp(89.0)</code> is already <code>inf</code>, and <code>inf / inf</code> is <code>NaN</code>.</p>
+<p>The fix comes from one line of algebra. For any constant <code>c</code>:</p>
+<p class="math">exp(zᵢ − c) / Σⱼ exp(zⱼ − c) = (exp(zᵢ)/e<sup>c</sup>) / (Σⱼ exp(zⱼ)/e<sup>c</sup>) = softmax(z)ᵢ</p>
+<p>So you can subtract anything you like from a row first. Choose <code>c = max(z)</code>. The largest exponent becomes <code>exp(0) = 1</code> and the rest fall in <code>(0, 1]</code>, so nothing overflows, and the denominator is at least 1, so you never divide by zero.
+<span class="sn">Online softmax, the trick behind FlashAttention in stage 8, is this same max-subtraction done on the fly, while the row is still streaming in.</span></p>
+
+<h2>Predict first</h2>
+<div class="predict" data-key="0001-zero-layer">
+  <p>Your zero-layer model is embed → RMSNorm → LM head, with nothing in between. Prompt: <code>"The capital of France is"</code>. At the last position, which token will it rank first, and why? Write a guess before you run anything.</p>
+  <textarea placeholder="My guess, and the reason…"></textarea>
+  <button>Lock in</button>
+  <div class="reveal">
+    <p><strong>REVEAL-PENDING</strong></p>
+  </div>
+</div>
+
+<h2>Build it</h2>
+<div class="task">
+<p class="label">Task</p>
+<ol>
+<li><strong>Setup, first time only</strong> (in WSL, inside the repo): <code>uv sync</code>, then <code>uv run python -c "import torch; print(torch.cuda.get_device_name())"</code> should print your 4050.</li>
+<li><strong>Look around.</strong> Load the model and list what it's made of. Find the two tensors you need today and check their shapes against the table above.
+<pre><code>uv run python -c "
+from transformers import AutoModelForCausalLM
+m = AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-0.6B')
+for k, v in m.state_dict().items():
+    if 'layers.' not in k or 'layers.0.' in k: print(k, tuple(v.shape))"</code></pre></li>
+<li><strong>Implement</strong> <code>embed</code>, <code>rms_norm</code>, <code>lm_head</code>, <code>softmax</code> in <code>minfer/ops.py</code>, then <code>zero_layer_logits</code> in <code>minfer/model.py</code>. Plain tensor ops only: no <code>torch.nn</code>, no built-in softmax or norm. The tests catch it if you use them.</li>
+<li><strong>Check</strong>: <code>uv run pytest tests/test_0001_logits.py -x</code>. Each test compares your output to Hugging Face's own modules, and a failure tells you the shape, the worst-mismatched element, and a hint.</li>
+<li><strong>Compare with your prediction</strong>: <code>uv run python scripts/zero_layer.py</code>. Try a few prompts of your own.</li>
+</ol>
+<p>Stuck? Ask me for a hint and say which level you want: <em>concept</em>, <em>shapes</em>, or <em>the line</em>.</p>
+</div>
+
+<section data-quiz-set>
+<h2>Recall</h2>
+<p>From memory, without scrolling up.</p>
+
+<div class="quiz" data-answer="1">
+  <p class="q">Why does a stable softmax subtract the row max first?</p>
+  <div class="opts">
+    <button>It makes the probabilities sum closer to one</button>
+    <button>It keeps every exponent at or below zero</button>
+    <button>It removes tokens the model is unsure about</button>
+    <button>It changes the logits into proper probabilities</button>
+  </div>
+  <p class="why">Subtracting a constant doesn't change the result (the e<sup>c</sup> cancels), and with <code>c = max</code> every exponent is ≤ 0, so <code>exp</code> can't overflow.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">Row <code>t</code> of the logits scores candidates for which token?</p>
+  <div class="opts">
+    <button>Token t, given every token in the prompt</button>
+    <button>Token t, given tokens before position t</button>
+    <button>The final token, given the whole prompt</button>
+    <button>Token t+1, given tokens 0 through t</button>
+  </div>
+  <p class="why">Each row is a next-token prediction made from the prefix ending at <code>t</code>. During generation only the last row gets sampled, which stage 3 will turn into a big saving.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">Where does ε go in RMSNorm, and what does it guard against?</p>
+  <div class="opts">
+    <button>Inside the root; rows with tiny values</button>
+    <button>Outside the root; rows with huge values</button>
+    <button>Added to w; dimensions that were never trained</button>
+    <button>Added to x; tokens that are all zeros</button>
+  </div>
+  <p class="why"><code>sqrt(mean(x²) + ε)</code>. When <code>mean(x²)</code> is far below ε, ε dominates and keeps the divisor away from zero.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="q">Why is the embedding an index lookup and not a one-hot matmul?</p>
+  <div class="opts">
+    <button>The matmul gives slightly different results</button>
+    <button>The matmul cannot run on the GPU</button>
+    <button>The matmul multiplies almost entirely by zero</button>
+    <button>The matmul would need a transposed table</button>
+  </div>
+  <p class="why">Both give the same result. The one-hot version does <code>T × V × D</code> multiply-adds, nearly all by zero, just to copy <code>T</code> rows.</p>
+</div>
+<p class="quiz-score"></p>
+</section>
+
+<div class="source">
+<p class="label">Primary source</p>
+<p><a href="https://www.3blue1brown.com/lessons/gpt">3Blue1Brown, <em>Transformers, the tech behind LLMs</em> (Deep Learning ch. 5)</a>. Watch or read the parts on tokens, embeddings, unembedding and softmax. It shows visually what you just built.</p>
+<p><strong>Going further:</strong> the "Zero-Layer Transformers" section of <a href="https://transformer-circuits.pub/2021/framework/index.html">Elhage et al., <em>A Mathematical Framework for Transformer Circuits</em></a> (Anthropic, 2021) explains what an embed → unembed model can and cannot learn. Read it after your prediction has been revealed.</p>
+</div>
+
+<div class="ask">
+<p class="label">Ask</p>
+<p>I'm your teacher for this course. If something here is unclear, if a test message confuses you, or if you want to know why Qwen made a particular choice, ask in the session. Questions like "why not just…" are the most useful kind.</p>
+</div>
+
+<p>Next, lesson 0002: one transformer block. Before you write any code, you'll do a <strong>shape trace</strong>: every tensor's shape through attention and the MLP, which I review against the config.</p>
+<p>Reference: <a href="../reference/qwen3-0.6b.html">Qwen3-0.6B card</a>, the shapes and formulas so far.</p>
+
+<nav class="pager"><a href="../index.html">← Course index</a><span></span></nav>
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
