@@ -4,19 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Qwen3-0.6B Card</title>
+<link rel="preload" href="../assets/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<main>
-<p class="kicker">Reference · grows with each lesson</p>
+<main class="wide">
+<p class="crumbs"><a href="../index.html">Inference from scratch</a> / Reference</p>
 <h1>Qwen3-0.6B card</h1>
-<p class="subtitle">Every number and formula the course has used so far.</p>
+<p class="lede">Every number and formula the course has used so far. It grows with each lesson.</p>
 
 <h2>Config</h2>
 <p>From <a href="https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/config.json"><code>config.json</code></a>.</p>
 <div class="table-wrap"><table>
 <tr><th>Key</th><th>Value</th><th>Symbol</th></tr>
-<tr><td><code>vocab_size</code></td><td>151,936 (tokenizer uses 151,669)</td><td>V</td></tr>
+<tr><td><code>vocab_size</code></td><td>151,936, of which the tokenizer uses 151,669</td><td>V</td></tr>
 <tr><td><code>hidden_size</code></td><td>1024</td><td>D</td></tr>
 <tr><td><code>num_hidden_layers</code></td><td>28</td><td>L</td></tr>
 <tr><td><code>num_attention_heads</code></td><td>16</td><td></td></tr>
@@ -32,7 +33,7 @@
 <h2>Weights used so far</h2>
 <div class="table-wrap"><table>
 <tr><th>Key</th><th>Shape</th><th>Role</th></tr>
-<tr><td><code>model.embed_tokens.weight</code></td><td><code>(V, D)</code></td><td>embedding table E, and the LM head (tied)</td></tr>
+<tr><td><code>model.embed_tokens.weight</code></td><td><code>(V, D)</code></td><td>embedding table E, reused as the tied LM head</td></tr>
 <tr><td><code>model.norm.weight</code></td><td><code>(D,)</code></td><td>final RMSNorm scale w</td></tr>
 </table></div>
 
@@ -49,12 +50,13 @@
 <h2>Facts worth keeping</h2>
 <ul>
 <li>Row <code>t</code> of the logits predicts token <code>t+1</code> from tokens <code>0..t</code>.</li>
+<li>With all 28 blocks removed, the model predicts its own input token, at 271 of 272 positions measured. Its logits reach about 116, past the fp32 <code>exp</code> limit.</li>
 <li>fp32 overflows above about e<sup>88.7</sup> ≈ 3.4 × 10³⁸. Softmax is shift-invariant, so subtract the row max first.</li>
 <li>ε goes inside the square root.</li>
-<li>Embedding is about 156M of the 0.6B parameters (0.44B non-embedding, per the model card).</li>
+<li>The embedding is about 156M of the 0.6B parameters. The model card gives 0.44B non-embedding.</li>
 </ul>
 
-<nav class="pager"><a href="../index.html">← Course index</a><span></span></nav>
+<nav class="pager"><a href="../index.html">← Course home</a><a href="notation.html">Notation decoder →</a></nav>
 </main>
 </body>
 </html>

@@ -4,41 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inference From Scratch</title>
+<link rel="preload" href="assets/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/course.css">
 </head>
 <body>
 <main>
-<p class="kicker">A self-study course</p>
 <h1>Inference from scratch</h1>
-<p class="subtitle">Learning how LLM inference works by writing a Qwen3-0.6B engine from PyTorch primitives on one 6 GB GPU.</p>
+<p class="lede">How an LLM turns a prompt into its next token, learned by writing a Qwen3-0.6B engine from PyTorch primitives on one 6 GB GPU.</p>
 
 <h2>Lessons</h2>
-<div class="table-wrap"><table>
-<tr><th>#</th><th>Lesson</th><th>Stage</th></tr>
-<tr><td>0001</td><td><a href="lessons/0001-tokens-in-logits-out.html">Tokens in, logits out</a></td><td>1 · forward pass</td></tr>
-</table></div>
+<ol class="lessons">
+  <li><a href="lessons/0001-tokens-in-logits-out.html"><span class="n">0001</span><span class="t">Tokens in, logits out</span><span class="m">45 min</span></a></li>
+</ol>
+
+<h2>The route</h2>
+<p>Each stage ends with tests passing against Hugging Face and a number measured on the 4050.</p>
+<ol class="rail">
+  <li class="now"><span class="what">Forward pass<small>your logits match Hugging Face's</small></span><span class="shape">in progress</span></li>
+  <li><span class="what">Sampling<small>temperature, top-k, top-p, the generation loop</small></span></li>
+  <li><span class="what">KV cache<small>prefill vs decode, and why decode is memory-bound</small></span></li>
+  <li><span class="what">Continuous batching<small>requests join and leave the batch every step</small></span></li>
+  <li><span class="what">Paged KV cache<small>the block tables behind vLLM</small></span></li>
+  <li><span class="what">Speculative decoding<small>a draft model guesses, the target verifies</small></span></li>
+  <li><span class="what">Weight-only quantization<small>int8, then int4</small></span></li>
+  <li><span class="what">Triton kernels<small>fused RMSNorm, then FlashAttention-style attention</small></span></li>
+</ol>
 
 <h2>Reference</h2>
 <ul>
-<li><a href="reference/notation.html">Notation decoder</a>: every symbol, its PyTorch, and a worked example</li>
-<li><a href="reference/qwen3-0.6b.html">Qwen3-0.6B card</a>: config, weights, and formulas so far</li>
+  <li><a href="reference/notation.html">Notation decoder</a>, every symbol with its PyTorch and a worked example</li>
+  <li><a href="reference/qwen3-0.6b.html">Qwen3-0.6B card</a>, the config, weights and formulas so far</li>
 </ul>
 
-<h2>The route</h2>
-<ol>
-<li>Forward pass: your logits match Hugging Face's</li>
-<li>Sampling and the generation loop</li>
-<li>KV cache, prefill vs decode, roofline</li>
-<li>Continuous batching</li>
-<li>Paged KV cache</li>
-<li>Speculative decoding</li>
-<li>Weight-only int8 / int4 quantization</li>
-<li>Triton kernels: fused RMSNorm, FlashAttention-style attention</li>
-</ol>
-
-<h2>Workspace</h2>
+<h2>Course files</h2>
 <ul>
-<li><a href="https://github.com/TanJeeSchuan/InferenceLearn/blob/main/MISSION.md">Mission</a> · <a href="https://github.com/TanJeeSchuan/InferenceLearn/blob/main/RESOURCES.md">Resources</a> · <a href="https://github.com/TanJeeSchuan/InferenceLearn/tree/main/learning-records">Learning records</a> · <a href="https://github.com/TanJeeSchuan/InferenceLearn">Source</a></li>
+  <li><a href="https://github.com/TanJeeSchuan/InferenceLearn/blob/main/MISSION.md">Mission</a>, why this course exists and what done looks like</li>
+  <li><a href="https://github.com/TanJeeSchuan/InferenceLearn/blob/main/RESOURCES.md">Resources</a>, the papers, docs and communities each stage draws on</li>
+  <li><a href="https://github.com/TanJeeSchuan/InferenceLearn/tree/main/learning-records">Learning records</a>, what has been learned so far</li>
+  <li><a href="https://github.com/TanJeeSchuan/InferenceLearn">Source</a>, the engine and its tests</li>
 </ul>
 </main>
 </body>
