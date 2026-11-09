@@ -21,4 +21,13 @@ def zero_layer_logits(ids: Tensor, W: dict[str, Tensor], eps: float) -> Tensor:
     ids: (T,) token ids
     ->   (T, V) logits; row t scores every candidate for token t+1
     """
-    raise NotImplementedError
+
+    embed_weight = W["model.embed_tokens.weight"]
+    norm_weight = W["model.norm.weight"]
+    lm_head_weight = W["lm_head.weight"]
+
+    e = ops.embed(ids, embed_weight)
+    norm_rms = ops.rms_norm(e, norm_weight, eps)
+    logits = ops.lm_head(norm_rms, lm_head_weight)
+
+    return logits

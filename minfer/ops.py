@@ -19,7 +19,7 @@ def embed(ids: Tensor, E: Tensor) -> Tensor:
     E:   (V, D) embedding table
     ->   (T, D)
     """
-    raise NotImplementedError
+    return E[ids]
 
 
 def rms_norm(x: Tensor, w: Tensor, eps: float) -> Tensor:
@@ -30,7 +30,7 @@ def rms_norm(x: Tensor, w: Tensor, eps: float) -> Tensor:
     eps: added inside the square root, so a row of zeros doesn't divide by zero
     ->   (..., D), same dtype as x
     """
-    raise NotImplementedError
+    return (x / (torch.sqrt(x.pow(2).mean(dim=-1, keepdim=True) + eps))) * w
 
 
 def lm_head(x: Tensor, E: Tensor) -> Tensor:
@@ -40,7 +40,8 @@ def lm_head(x: Tensor, E: Tensor) -> Tensor:
     E: (V, D) the same table `embed` used (Qwen3-0.6B ties these weights)
     -> (T, V) logits
     """
-    raise NotImplementedError
+
+    return x @ E.T
 
 
 def softmax(z: Tensor) -> Tensor:
@@ -49,4 +50,9 @@ def softmax(z: Tensor) -> Tensor:
     z: (..., V) any real numbers, including very large ones
     -> (..., V) non-negative, each row sums to 1, never NaN or inf
     """
-    raise NotImplementedError
+
+    shifted = z - z.max(dim=-1, keepdim=True).values          # z minus its row max (keepdim!)
+    e = shifted.exp()
+    total = e.sum(-1, keepdim=True)
+
+    return e / total
