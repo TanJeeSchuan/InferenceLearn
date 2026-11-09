@@ -13,7 +13,7 @@
 ## Setup
 - Code runs on the home machine (Win11 + WSL2, RTX 4050 6 GB), linked to the T3 session. The repo is cloned inside the WSL filesystem, not `/mnt/c`.
 - The server that authors the course has ~7 GB RAM shared with other services: never load the model there.
-- Public repo, lessons on GitHub Pages.
+- Public repo. GitHub Pages (https://tanjeeschuan.github.io/InferenceLearn/) is the main way the learner reads lessons; local HTML files are a fallback. A lesson only counts as delivered once the Pages build reports `built` and the live URL serves the new version, including assets. Hand the learner Pages URLs, not file paths. Every link in a page must work from Pages: relative links for course pages, GitHub blob/tree URLs for Markdown files like MISSION.md.
 - Tests run in fp32 to keep tolerances tight. bf16 behavior is its own topic later (stage 3/7).
 - Laptop facts (measured 2026-11-09): WSL distro Ubuntu-26.04, repo at `~/InferenceLearn`, uv 0.13.7, torch 2.11.0+cu128, transformers 5.22.2, Python 3.12. The Windows desktop holds ~1.6 GB of VRAM; the lesson 0001 tests peak at 2.3 GB allocated. WSL's `/tmp` gets wiped between separate `wsl` calls, so keep scratch files in `~/.scratch`.
 - Verifying a lesson: delegate to the laptop and put the reference solution only in a throwaway clone (`~/.scratch/minfer-verify`). Check that the reference passes, and that a planted bug makes each test fail.
