@@ -42,6 +42,17 @@
 <tr><td><code>argmax</code></td><td><em>index</em> of the largest element</td><td><code>z.argmax(-1)</code></td><td>argmax([2, 1, 0]) = 0</td></tr>
 </table></div>
 
+<h2 id="type-hints">Reading the stubs: type hints</h2>
+<p>The function signatures in <code>minfer/</code> carry Python type hints. They document what goes in and what comes out. Python doesn't check them at runtime.</p>
+<div class="table-wrap"><table>
+<tr><th>Written</th><th>Means</th><th>Example</th></tr>
+<tr><td><code>ids: Tensor</code></td><td>the argument <code>ids</code> is a PyTorch tensor</td><td><code>tensor([785, 6722])</code></td></tr>
+<tr><td><code>eps: float</code></td><td>the argument <code>eps</code> is a Python float</td><td><code>1e-06</code></td></tr>
+<tr><td><code>W: dict[str, Tensor]</code></td><td>a dictionary whose keys are strings and whose values are tensors</td><td><code>W["model.norm.weight"]</code> is a <code>(1024,)</code> tensor</td></tr>
+<tr><td><code>-&gt; Tensor</code></td><td>the function returns a tensor</td><td></td></tr>
+</table></div>
+<p>The shapes live in the docstrings, because the type hint only says "tensor". <code>ids: (T,)</code> under a function means that argument is 1-D with length T.</p>
+
 <h2 id="keepdim">Why <code>keepdim=True</code></h2>
 <p>For <code>x</code> of shape <code>(2, 3)</code>, <code>x.sum(-1)</code> returns <code>(2,)</code>, one total per row. PyTorch lines shapes up from the right, so dividing <code>(2, 3)</code> by <code>(2,)</code> matches the 2 totals against the 3 columns. Here that raises an error. When the sizes happen to match, it silently divides by the wrong totals, which is worse.</p>
 <p><code>x.sum(-1, keepdim=True)</code> returns <code>(2, 1)</code>. Dividing <code>(2, 3)</code> by <code>(2, 1)</code> stretches each row's total across that row's 3 columns, so every element gets divided by its own row's total.</p>
