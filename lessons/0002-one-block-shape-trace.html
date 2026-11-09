@@ -111,6 +111,7 @@ x = x + mlp(rms_norm(x))         # transform each position on its own</code></pr
 <h2>Trace it</h2>
 <div class="task">
 <ol>
+<li><strong>Watch</strong> <a href="https://www.3blue1brown.com/lessons/attention">3Blue1Brown, <em>Attention in transformers, step-by-step</em></a>, chapter 6, if attention still feels abstract after the sections above. It draws queries, keys, values and the mask.</li>
 <li><strong>Update</strong> with <code>git pull</code> in <code>~/InferenceLearn</code>.</li>
 <li><strong>Fill in</strong> the Shape column of <code>traces/0002-block.md</code>, all 31 rows, for the prompt "The capital of France is" (T = 5). Work it out from the config and the weight shapes. Don't run any model code yet.</li>
 <li><strong>Check</strong> with <code>uv run python scripts/check_trace.py</code>. It marks each row ok or wrong and gives a hint for wrong rows, without printing the answer.</li>
@@ -159,7 +160,6 @@ x = x + mlp(rms_norm(x))         # transform each position on its own</code></pr
 </section>
 
 <h2>Read next</h2>
-<p><a href="https://www.3blue1brown.com/lessons/attention">3Blue1Brown, <em>Attention in transformers, step-by-step</em></a>, chapter 6 of the deep learning series. It draws queries, keys, values and the mask.</p>
 <p>Once your trace passes, read <code>Qwen3Attention.forward</code> and <code>Qwen3DecoderLayer.forward</code> in <a href="https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen3/modeling_qwen3.py"><code>modeling_qwen3.py</code></a>. Each line should match a row of your trace. The code has a batch dimension in front that our engine doesn't have yet.</p>
 <p>Ask me about anything in the trace that feels arbitrary. Most of these choices have a reason, and the reason usually matters later in the course.</p>
 
