@@ -1,6 +1,6 @@
 # LLM Inference Resources
 
-Every link below was fetched on 2026-11-09 and the title and authors checked against the page.
+Every link below was fetched on 2026-11-09 and the title and authors checked against the page. The "Under the tensor library" section was fetched on 2026-11-13.
 
 ## Knowledge
 
@@ -70,6 +70,19 @@ Every link below was fetched on 2026-11-09 and the title and authors checked aga
 - [Docs: Triton Tutorials by the Triton project (OpenAI)](https://triton-lang.org/main/getting-started/tutorials/index.html)
   Official kernel gallery; work in order through Fused Softmax, Matrix Multiplication, Layer Normalization (adapt to RMSNorm) and Fused Attention (an FA2 implementation). Use for: stage 8, and the matmul tutorial as the base for a stage 7 int4 dequant-matmul.
 
+### Under the tensor library (side reading for stages 1, 3 and 8)
+The engine in this course sits on top of PyTorch. These cover the layer below it, where `q @ k.T` becomes a GPU kernel. None is on the spine.
+- [Source: tinygrad/llm/model.py by the tinygrad authors (2026, pinned at 8e6fcc5)](https://github.com/tinygrad/tinygrad/blob/8e6fcc541f87a19711407b80dbdba8019cb82aa9/tinygrad/llm/model.py)
+  A 966-line multi-architecture LLM runtime. `TransformerBlock._attention` (line 364) is Qwen3's attention in 37 lines: bias-free Q/K/V, QK-Norm, RoPE, a static preallocated fp16 KV cache written at `start_pos`, then GQA scaled dot-product attention. `Transformer` (line 664) JIT-compiles prefill and decode separately and samples with the Gumbel-max trick. `cli.py` in the same folder maps `qwen3:0.6b` to the official Q8_0 GGUF. Use for: a third reference after stage 1 and again after stage 3, to compare a static cache against yours. The file also carries MoE, MLA, state-space and AMD-only kernel paths, so read those two classes and skip the rest.
+- [Source: tinygrad/llm/serve.py by the tinygrad authors (2026, pinned at 8e6fcc5)](https://github.com/tinygrad/tinygrad/blob/8e6fcc541f87a19711407b80dbdba8019cb82aa9/tinygrad/llm/serve.py)
+  The server takes requests off a queue and decodes them one at a time. Line 206 carries `# TODO: batch decodes across requests (batched_step)`. Use for: stage 4, as a real engine that still lacks the scheduler you will have built; the model already accepts one `start_pos` per batch row.
+- [Docs: speed in tinygrad by the tinygrad authors](https://github.com/tinygrad/tinygrad/blob/master/docs/developer/speed.md)
+  Two pages splitting speed into compile, execution, scheduling and kernel speed. The Memory section defines arithmetic intensity, puts batch-1 GEMV at intensity 1, and works the 4090 numbers (1 TB/s, about 160 TFLOPS, so each loaded value must be used about 100 times). Use for: stage 3, as a second statement of the roofline argument in GPU terms.
+- [Docs: tinygrad environment variables by the tinygrad authors](https://docs.tinygrad.org/env_vars/)
+  `DEBUG=2` prints time, memory and bandwidth per kernel; `DEBUG=4` prints the generated kernel source. Use for: stage 8, to read the fused kernel a compiler emits for RMSNorm or attention before and after writing yours in Triton.
+- [Syllabus: 10-411 Compilers for Machine Learning by George Hotz, Carnegie Mellon University (Spring 2027)](https://10-411.com/)
+  A draft syllabus for an in-person course that builds an ML compiler from elementwise ops to GPU codegen, with flash attention in week 9 and SOTA inference in week 11. Lectures are not posted online and the course repository is still TBD, so today this is a topic list, not material. The [technical syllabus gist](https://gist.github.com/geohot/4768597d9dc536446ee2d5de1f29e89d) lists the ops introduced each week and says the week 5 compiler runs Qwen. Use for: a map of what lies under stage 8, and a candidate sequel once the Triton kernel is done.
+
 ### Course design
 - [Paper: When Problem Solving Followed by Instruction Works: Evidence for Productive Failure by Tanmay Sinha and Manu Kapur (Review of Educational Research, 2021)](https://doi.org/10.3102/00346543211019105)
   Meta-analysis of 53 studies: problem solving before instruction beats instruction first (Hedges' g 0.36, higher with full productive-failure fidelity); it also reports where the effect reverses. Use for: justifying "attempt the stage before reading the reference implementation", and for the conditions under which that fails.
@@ -89,6 +102,7 @@ Every link below was fetched on 2026-11-09 and the title and authors checked aga
 - No first-party guide to Triton or `torch.compile` under WSL2. [NVIDIA's CUDA on WSL User Guide](https://docs.nvidia.com/cuda/wsl-user-guide/index.html) covers driver and toolkit setup and notes `nvidia-smi` is limited under WSL; profiler support for kernel-level work needs to be checked on the machine before stage 8.
 - No primary tutorial for a Triton weight-only int4 dequant-matmul. GPTQ and AWQ describe the math; the Triton matmul tutorial is the nearest starting point for stage 7 kernels.
 - No resource on choosing a draft/target pair that fits in 6 GB. Table 1 of the Qwen3 report shows Qwen3-1.7B shares 0.6B's layer count, head layout and tokenizer, which makes 0.6B drafting for 1.7B the natural stage 6 setup, but nobody publishes acceptance rates for that pair.
+- tinygrad has not been run on the laptop. Its `CUDA` runtime needs nvrtc, and whether that loads under WSL2 on the RTX 4050 is unchecked. The `NV` runtime drives the GPU directly and is unlikely to work through WSL's virtualized driver. Check with `DEV=CUDA DEBUG=2` before any lesson depends on it.
 - No resource ties continuous batching to a single small GPU. Orca targets distributed serving; Nano-vLLM's code is the practical bridge.
 
 ## Unverified

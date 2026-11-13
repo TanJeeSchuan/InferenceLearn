@@ -1,0 +1,5 @@
+# Mission change: tinygrad joins the upstream candidates
+
+The learner asked how tinygrad and CMU's 10-411 (Compilers for Machine Learning) fit the course (2026-11-13). Both build the layer under PyTorch, where this course builds the engine on top of it. After seeing that tinygrad's LLM runtime is about 1,000 lines of Python, runs Qwen3-0.6B, and has an open `TODO: batch decodes across requests` in `tinygrad/llm/serve.py`, the learner chose to add tinygrad as a third upstream candidate beside vLLM/SGLang and llama.cpp. 10-411 stays out of the course as a possible sequel.
+
+**Implications**: The spine is unchanged. The post-stage-5 lesson comparing codebases now covers three, and should check whether the serve.py TODO is still open and whether maintainers want it from an outside contributor. After stages 1 and 3, point the learner at `TransformerBlock._attention` as a reference to diff against. Stage 8 can use tinygrad's `DEBUG=4` output as a compiler-written kernel to compare with the Triton one, once tinygrad is confirmed to run under WSL2 on the laptop.

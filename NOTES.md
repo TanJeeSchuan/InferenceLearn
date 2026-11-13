@@ -10,6 +10,11 @@
 ## Spine
 1 forward pass, 2 sampling, 3 KV cache + roofline, 4 continuous batching, 5 paged KV, 6 speculative decoding, 7 int8/int4 weight-only quant, 8 Triton kernels (fused RMSNorm, FlashAttention-style). Model: Qwen3-0.6B only.
 
+## tinygrad and 10-411 (asked 2026-11-13)
+- Both live one layer below this course: they build the tensor compiler, this course builds the engine on top of PyTorch. They touch the spine at stage 3 (roofline) and stage 8 (kernels).
+- Placement: tinygrad's `llm/model.py` as a post-attempt reference for stages 1 and 3, its `DEBUG=2`/`DEBUG=4` output as a stage 8 instrument, 10-411 as a possible sequel. Not on the spine.
+- The learner agreed to tinygrad as a third upstream candidate (LR 0006). tinygrad's CONTRIBUTING closes large diffs and closes, possibly with a ban, anything from a new contributor that looks AI-written. If it is chosen, the PR is written by the learner, with any AI use disclosed.
+
 ## Setup
 - Code runs on the home machine (Win11 + WSL2, RTX 4050 6 GB), linked to the T3 session. The repo is cloned inside the WSL filesystem, not `/mnt/c`.
 - The server that authors the course has ~7 GB RAM shared with other services: never load the model there.
@@ -21,7 +26,7 @@
 ## Preferences
 - Wants to be challenged. Terse prose, no filler.
 - Every formula comes with its PyTorch line and a 3-4 element numeric example. New symbols go into `reference/notation.html` (see LR 0002).
-- Upstream target is decided after stage 5 with a short lesson comparing the codebases.
+- Upstream target (vLLM/SGLang, llama.cpp or tinygrad) is decided after stage 5 with a short lesson comparing the codebases.
 
 ## Page style (2026-11-09)
 - Geist and Geist Mono, self-hosted in `assets/fonts`. One accent color, blue. Light and dark come from the tokens in `assets/course.css`.
